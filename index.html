@@ -35,6 +35,19 @@
       background-size:cover; background-position:center; background-repeat:no-repeat; display:none;
     }
 
+    #deathMenu {
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:15px;
+  background:rgba(0,0,0,.65);
+  font-size:32px;
+}
+
     #mobileControls { position:fixed; inset:0; pointer-events:none; z-index:20; }
 
     #joystick {
@@ -92,6 +105,12 @@
 
 <div id="staticOverlay"></div>
 <div id="jumpscareScreen"></div>
+
+<div id="deathMenu">
+  <div><b>You got caught.</b></div>
+  <button id="restartBtn">Restart Game</button>
+  <button id="lobbyBtn">Back to Lobby</button>
+</div>
 
 <div id="mobileControls">
   <div id="joystick"><div id="stick"></div></div>
@@ -158,6 +177,9 @@ const lobbyStatus = document.getElementById("lobbyStatus");
 
 const staticOverlay = document.getElementById("staticOverlay");
 const jumpscareScreen = document.getElementById("jumpscareScreen");
+const deathMenu = document.getElementById("deathMenu");
+const restartBtn = document.getElementById("restartBtn");
+const lobbyBtn = document.getElementById("lobbyBtn");
 
 const ambient = document.getElementById("ambient");
 const staticSound = document.getElementById("staticSound");
@@ -213,6 +235,21 @@ soloBtn.onclick = () => {
   multiplayerEnabled = false;
   lobby.style.display = "none";
   msg.style.display = "flex";
+};
+
+  restartBtn.onclick = () => {
+  resetGame();
+
+  if (multiplayerEnabled && socket && socket.connected && roomCode) {
+    socket.emit("startGame", roomCode);
+  } else {
+    msg.style.display = "flex";
+  }
+};
+
+lobbyBtn.onclick = () => {
+  resetGame();
+  lobby.style.display = "flex";
 };
 
 function connectSocket() {
@@ -728,6 +765,7 @@ function loseGame() {
   staticSound.pause();
 
   staticOverlay.style.opacity = 0;
+
   jumpscareScreen.style.display = "block";
   msg.style.display = "none";
   ui.style.display = "none";
@@ -737,9 +775,51 @@ function loseGame() {
   jumpAudio.volume = 1;
   jumpAudio.play().catch(() => {});
 
-  if (document.pointerLockElement) document.exitPointerLock();
-}
+  setTimeout(() => {
+    jumpscareScreen.style.display = "none";
+    deathMenu.style.display = "flex";
+  }, 1200);
 
+  if (document.pointerLockElement) {
+    document.exitPointerLock();
+  }
+}
+  
+function resetGame() {
+  gameOver = false;
+  started = false;
+  collected = 0;
+
+  ui.innerHTML = "Baseballs: 0 / 8";
+  ui.style.display = "block";
+
+  deathMenu.style.display = "none";
+  jumpscareScreen.style.display = "none";
+  staticOverlay.style.opacity = 0;
+
+  camera.position.set(0, groundY, 18);
+
+  yaw = 0;
+  pitch = 0;
+
+  verticalVelocity = 0;
+  onGround = true;
+
+  camera.rotation.order = "YXZ";
+  camera.rotation.y = 0;
+  camera.rotation.x = 0;
+
+  warden.position.set(45, 3, 45);
+
+  sigils.forEach(ball => {
+    ball.userData.taken = false;
+    ball.visible = true;
+  });
+
+  ambient.currentTime = 0;
+  staticSound.currentTime = 0;
+}
+  
 function winGame() {
   gameOver = true;
   ambient.pause();
