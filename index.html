@@ -46,6 +46,17 @@
       mix-blend-mode:screen;
     }
 
+    #jumpscareScreen {
+      position:fixed;
+      inset:0;
+      z-index:999;
+      background-image:url("warden.png");
+      background-size:cover;
+      background-position:center;
+      background-repeat:no-repeat;
+      display:none;
+    }
+
     #mobileControls {
       position:fixed;
       inset:0;
@@ -94,6 +105,7 @@
 </div>
 
 <div id="staticOverlay"></div>
+<div id="jumpscareScreen"></div>
 
 <div id="mobileControls">
   <div id="joystick">
@@ -103,7 +115,7 @@
 
 <audio id="ambient" src="ambient.mp3" loop></audio>
 <audio id="staticSound" src="static.mp3" loop></audio>
-<audio id="jump" src="jumpscare3.mp3"></audio>
+<audio id="jump" src="jumpscare3.mp3" preload="auto"></audio>
 
 <script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
@@ -117,6 +129,7 @@ let collected = 0;
 const ui = document.getElementById("ui");
 const msg = document.getElementById("msg");
 const staticOverlay = document.getElementById("staticOverlay");
+const jumpscareScreen = document.getElementById("jumpscareScreen");
 
 const ambient = document.getElementById("ambient");
 const staticSound = document.getElementById("staticSound");
@@ -443,12 +456,22 @@ function updateSigils() {
 
 function loseGame() {
   gameOver = true;
+
   ambient.pause();
   staticSound.pause();
-  jump.play();
 
-  msg.style.display = "flex";
-  msg.innerHTML = "THE WARDEN FOUND YOU";
+  staticOverlay.style.opacity = 0;
+  jumpscareScreen.style.display = "block";
+  msg.style.display = "none";
+  ui.style.display = "none";
+
+  jump.pause();
+  jump.currentTime = 0;
+  jump.volume = 1;
+
+  jump.play().catch(err => {
+    console.log("Jumpscare audio failed:", err);
+  });
 
   if (document.pointerLockElement) {
     document.exitPointerLock();
