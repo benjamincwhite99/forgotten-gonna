@@ -446,9 +446,10 @@ function init() {
   scene.add(camera);
 
   makeBaseballField();
+  makeSchoolBus();
   makeSigils();
   makeWarden();
-
+  
   document.addEventListener("keydown", e => {
     keys[e.key.toLowerCase()] = true;
     if (e.code === "Space") doJump();
@@ -547,7 +548,104 @@ function makeLightPole(x, z) {
   light.position.set(x, 31, z);
   scene.add(light);
 }
+  
+function makeSchoolBus() {
 
+  const bus = new THREE.Group();
+
+  const yellowMat = new THREE.MeshStandardMaterial({
+    color: 0xffcc00
+  });
+
+  const blackMat = new THREE.MeshStandardMaterial({
+    color: 0x111111
+  });
+
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0x66aaff,
+    transparent:true,
+    opacity:0.7
+  });
+
+  // Main body
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(16, 5, 5),
+    yellowMat
+  );
+  body.position.y = 3;
+  bus.add(body);
+
+  // Roof
+  const roof = new THREE.Mesh(
+    new THREE.BoxGeometry(15.5, 1, 4.5),
+    yellowMat
+  );
+  roof.position.y = 5.5;
+  bus.add(roof);
+
+  // Wheels
+  const wheelPositions = [
+    [-5.5, 1, 2.8],
+    [5.5, 1, 2.8],
+    [-5.5, 1, -2.8],
+    [5.5, 1, -2.8]
+  ];
+
+  wheelPositions.forEach(pos => {
+    const wheel = new THREE.Mesh(
+      new THREE.CylinderGeometry(1, 1, 0.8, 20),
+      blackMat
+    );
+
+    wheel.rotation.z = Math.PI / 2;
+    wheel.position.set(...pos);
+    bus.add(wheel);
+  });
+
+  // Windows
+  for (let i = -6; i <= 6; i += 2.4) {
+
+    const leftWindow = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 1.2, 0.1),
+      windowMat
+    );
+
+    leftWindow.position.set(i, 4, 2.55);
+    bus.add(leftWindow);
+
+    const rightWindow = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 1.2, 0.1),
+      windowMat
+    );
+
+    rightWindow.position.set(i, 4, -2.55);
+    bus.add(rightWindow);
+  }
+
+  // Front windshield
+  const windshield = new THREE.Mesh(
+    new THREE.BoxGeometry(2.8, 1.8, 4),
+    windowMat
+  );
+
+  windshield.position.set(7.9, 4, 0);
+  bus.add(windshield);
+
+  // SCHOOL BUS sign
+  const sign = new THREE.Mesh(
+    new THREE.BoxGeometry(3, 0.5, 0.2),
+    blackMat
+  );
+
+  sign.position.set(8.1, 5.2, 0);
+  bus.add(sign);
+
+  // Place in center of field
+  bus.position.set(0, 0, -15);
+
+  scene.add(bus);
+}
+  
 function makeSigils() {
   const positions = [
     [0, 2.3, 0], [18, 2.3, -18], [0, 2.3, -36], [-18, 2.3, -18],
