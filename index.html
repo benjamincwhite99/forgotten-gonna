@@ -237,13 +237,29 @@ soloBtn.onclick = () => {
   msg.style.display = "flex";
 };
 
-  restartBtn.onclick = () => {
+restartBtn.onclick = () => {
   resetGame();
 
-  if (multiplayerEnabled && socket && socket.connected && roomCode) {
+  lobby.style.display = "none";
+  msg.style.display = "none";
+  deathMenu.style.display = "none";
+  jumpscareScreen.style.display = "none";
+
+  started = true;
+  gameOver = false;
+
+  ambient.volume = 0.45;
+  staticSound.volume = 0;
+
+  ambient.play().catch(() => {});
+  staticSound.play().catch(() => {});
+
+  if (!isMobile()) {
+    document.body.requestPointerLock();
+  }
+
+  if (multiplayerEnabled && socket && socket.connected && roomCode && isHost) {
     socket.emit("startGame", roomCode);
-  } else {
-    msg.style.display = "flex";
   }
 };
 
@@ -301,9 +317,22 @@ function connectSocket() {
   });
 
   socket.on("gameStarted", () => {
-    lobby.style.display = "none";
-    msg.style.display = "flex";
-  });
+  resetGame();
+
+  lobby.style.display = "none";
+  msg.style.display = "none";
+  deathMenu.style.display = "none";
+  jumpscareScreen.style.display = "none";
+
+  started = true;
+  gameOver = false;
+
+  ambient.volume = 0.45;
+  staticSound.volume = 0;
+
+  ambient.play().catch(() => {});
+  staticSound.play().catch(() => {});
+});
 
   socket.on("playersUpdate", players => {
     updateOtherPlayers(players);
