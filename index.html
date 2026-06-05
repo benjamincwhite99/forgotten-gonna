@@ -31,7 +31,7 @@
     }
 
     #jumpscareScreen {
-      position:fixed; inset:0; z-index:999; background-image:url("warden.png");
+      position:fixed; inset:0; z-index:999; background-image:url("warden2.png");
       background-size:cover; background-position:center; background-repeat:no-repeat; display:none;
     }
 
@@ -673,7 +673,7 @@ function makeSigils() {
 }
 
 function makeWarden() {
-  const texture = new THREE.TextureLoader().load("warden.png");
+  const texture = new THREE.TextureLoader().load("warden2.png");
   const mat = new THREE.SpriteMaterial({ map:texture, transparent:true });
 
   warden = new THREE.Sprite(mat);
