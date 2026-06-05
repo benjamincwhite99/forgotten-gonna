@@ -6,23 +6,23 @@
 
   <style>
     body { margin:0; overflow:hidden; background:black; font-family:Arial; color:white; touch-action:none; }
-
-    #ui {
-      position:fixed; top:15px; left:15px; font-size:22px; z-index:5;
-      text-shadow:2px 2px 6px black;
-    }
+    #ui { position:fixed; top:15px; left:15px; font-size:22px; z-index:5; text-shadow:2px 2px 6px black; }
 
     #msg, #lobby {
       position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-      text-align:center; font-size:28px; z-index:6; background:rgba(0,0,0,.65); padding:30px;
-      flex-direction:column; gap:12px;
+      text-align:center; font-size:28px; z-index:6; background:rgba(0,0,0,.65);
+      padding:30px; flex-direction:column; gap:12px;
     }
 
-    input, button {
-      font-size:20px; padding:10px 14px; border-radius:8px; border:none;
-    }
-
+    input, button { font-size:20px; padding:10px 14px; border-radius:8px; border:none; }
     button { cursor:pointer; }
+
+    #roomDisplay, #playerList, #lobbyStatus {
+      font-size:17px;
+      color:#ddd;
+      max-width:420px;
+      line-height:1.4;
+    }
 
     #staticOverlay {
       position:fixed; inset:0; pointer-events:none; z-index:4;
@@ -57,6 +57,7 @@
     @media (max-width: 900px) {
       #joystick, #jumpBtn { display:block; }
       #msg, #lobby { font-size:23px; }
+      input, button { font-size:17px; }
     }
   </style>
 </head>
@@ -66,11 +67,19 @@
 
 <div id="lobby">
   <div><b>Forgotten Gonza Multiplayer</b></div>
-  <div style="font-size:18px;">Enter a private lobby code or create one.</div>
-  <input id="roomInput" placeholder="Example: GONZA123">
+  <div style="font-size:18px;">Create a private lobby or join one with a code.</div>
+
+  <input id="nameInput" placeholder="Your name">
+  <input id="roomInput" placeholder="Room code">
+
+  <button id="createBtn">Create Private Lobby</button>
   <button id="joinBtn">Join Lobby</button>
+  <button id="startBtn" style="display:none;">Start Game</button>
   <button id="soloBtn">Play Solo</button>
-  <div id="lobbyStatus" style="font-size:15px;color:#ccc;"></div>
+
+  <div id="roomDisplay"></div>
+  <div id="playerList"></div>
+  <div id="lobbyStatus"></div>
 </div>
 
 <div id="msg" style="display:none;">
@@ -98,12 +107,13 @@
 <script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
-/* CHANGE THIS WHEN YOU HAVE A SERVER */
 const SERVER_URL = "https://forgotten-gonna.onrender.com";
 
 let socket = null;
 let roomCode = null;
 let multiplayerEnabled = false;
+let isHost = false;
+let myName = "Player";
 let otherPlayers = {};
 
 let scene, camera, renderer;
@@ -134,9 +144,16 @@ let warden;
 const ui = document.getElementById("ui");
 const msg = document.getElementById("msg");
 const lobby = document.getElementById("lobby");
+
+const nameInput = document.getElementById("nameInput");
 const roomInput = document.getElementById("roomInput");
+const createBtn = document.getElementById("createBtn");
 const joinBtn = document.getElementById("joinBtn");
+const startBtn = document.getElementById("startBtn");
 const soloBtn = document.getElementById("soloBtn");
+
+const roomDisplay = document.getElementById("roomDisplay");
+const playerList = document.getElementById("playerList");
 const lobbyStatus = document.getElementById("lobbyStatus");
 
 const staticOverlay = document.getElementById("staticOverlay");
@@ -153,71 +170,187 @@ const jumpBtn = document.getElementById("jumpBtn");
 init();
 animate();
 
+createBtn.onclick = () => {
+  myName = nameInput.value.trim() || "Player";
+  connectSocket();
+
+  socket.once("connect", () => {
+    socket.emit("createRoom", { name: myName });
+  });
+
+  if (socket.connected) {
+    socket.emit("createRoom", { name: myName });
+  }
+};
+
 joinBtn.onclick = () => {
-  const code = roomInput.value.trim().toUpperCase() || "GONZA-" + Math.floor(Math.random() * 9999);
-  connectMultiplayer(code);
+  myName = nameInput.value.trim() || "Player";
+  const code = roomInput.value.trim().toUpperCase();
+
+  if (!code) {
+    lobbyStatus.innerText = "Enter a room code.";
+    return;
+  }
+
+  connectSocket();
+
+  socket.once("connect", () => {
+    socket.emit("joinRoom", { roomCode: code, name: myName });
+  });
+
+  if (socket.connected) {
+    socket.emit("joinRoom", { roomCode: code, name: myName });
+  }
+};
+
+startBtn.onclick = () => {
+  if (isHost && roomCode && socket) {
+    socket.emit("startGame", roomCode);
+  }
 };
 
 soloBtn.onclick = () => {
+  multiplayerEnabled = false;
   lobby.style.display = "none";
   msg.style.display = "flex";
 };
 
-function connectMultiplayer(code) {
-  roomCode = code;
+function connectSocket() {
+  if (socket) return;
+
   lobbyStatus.innerText = "Connecting...";
 
-  try {
-    socket = io(SERVER_URL, { transports:["websocket"] });
+  socket = io(SERVER_URL, { transports:["websocket"] });
 
-    socket.on("connect", () => {
-      multiplayerEnabled = true;
-      socket.emit("joinRoom", roomCode);
-      lobby.style.display = "none";
-      msg.style.display = "flex";
-    });
+  socket.on("roomCreated", data => {
+    multiplayerEnabled = true;
+    roomCode = data.roomCode;
+    isHost = true;
 
-    socket.on("connect_error", () => {
-      lobbyStatus.innerText = "Could not connect. Check SERVER_URL/server.";
-    });
+    roomDisplay.innerHTML = `Room Code: <b>${roomCode}</b>`;
+    startBtn.style.display = "inline-block";
+    lobbyStatus.innerText = "Lobby created. Share the code.";
+  });
 
-    socket.on("playersUpdate", players => {
-      if (!socket) return;
+  socket.on("roomJoined", data => {
+    multiplayerEnabled = true;
+    roomCode = data.roomCode;
+    isHost = socket.id === data.hostId;
 
-      for (const id in players) {
-        if (id === socket.id) continue;
+    roomDisplay.innerHTML = `Room Code: <b>${roomCode}</b>`;
+    startBtn.style.display = isHost ? "inline-block" : "none";
+    lobbyStatus.innerText = "Joined lobby. Waiting for host.";
+  });
 
-        const p = players[id];
+  socket.on("joinError", text => {
+    lobbyStatus.innerText = text;
+  });
 
-        if (!otherPlayers[id]) {
-          otherPlayers[id] = makeOtherPlayer();
-          scene.add(otherPlayers[id]);
-        }
+  socket.on("lobbyUpdate", room => {
+    const players = Object.values(room.players);
+    const hostId = room.hostId;
 
-        otherPlayers[id].position.set(p.x, p.y, p.z);
-      }
+    playerList.innerHTML =
+      `<br><b>Players in lobby: ${players.length}</b><br>` +
+      players.map(p => `• ${p.name}${p.id === hostId ? " 👑" : ""}`).join("<br>");
 
-      for (const id in otherPlayers) {
-        if (!players[id]) {
-          scene.remove(otherPlayers[id]);
-          delete otherPlayers[id];
-        }
-      }
-    });
-  } catch {
-    lobbyStatus.innerText = "Socket failed. You can still play solo.";
+    if (socket.id === hostId) {
+      isHost = true;
+      startBtn.style.display = "inline-block";
+    } else {
+      isHost = false;
+      startBtn.style.display = "none";
+    }
+  });
+
+  socket.on("gameStarted", () => {
+    lobby.style.display = "none";
+    msg.style.display = "flex";
+  });
+
+  socket.on("playersUpdate", players => {
+    updateOtherPlayers(players);
+  });
+
+  socket.on("connect_error", () => {
+    lobbyStatus.innerText = "Server connection failed. Make sure Render is awake.";
+  });
+}
+
+function updateOtherPlayers(players) {
+  if (!socket) return;
+
+  for (const id in players) {
+    if (id === socket.id) continue;
+
+    const p = players[id];
+
+    if (!otherPlayers[id]) {
+      otherPlayers[id] = makeOtherPlayer(p.name);
+      scene.add(otherPlayers[id]);
+    }
+
+    otherPlayers[id].position.set(p.x, p.y, p.z);
+    otherPlayers[id].rotation.y = p.yaw;
+  }
+
+  for (const id in otherPlayers) {
+    if (!players[id]) {
+      scene.remove(otherPlayers[id]);
+      delete otherPlayers[id];
+    }
   }
 }
 
-function makeOtherPlayer() {
+function makeOtherPlayer(name) {
   const group = new THREE.Group();
 
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.45, 1.4, 6, 12),
-    new THREE.MeshStandardMaterial({ color:0x00aaff })
-  );
-  body.position.y = 1.1;
+  const bodyMat = new THREE.MeshStandardMaterial({ color:0x1e90ff });
+  const headMat = new THREE.MeshStandardMaterial({ color:0xffd1a4 });
+  const hatMat = new THREE.MeshStandardMaterial({ color:0xff2222 });
+  const pantsMat = new THREE.MeshStandardMaterial({ color:0xffffff });
+
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.45, 1.2, 6, 12), bodyMat);
+  body.position.y = 1.25;
   group.add(body);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16), headMat);
+  head.position.y = 2.25;
+  group.add(head);
+
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.18, 16), hatMat);
+  cap.position.y = 2.58;
+  group.add(cap);
+
+  const bill = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.08, 0.35), hatMat);
+  bill.position.set(0, 2.53, -0.35);
+  group.add(bill);
+
+  const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.8, 10), pantsMat);
+  leg1.position.set(-0.18, 0.45, 0);
+  group.add(leg1);
+
+  const leg2 = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.8, 10), pantsMat);
+  leg2.position.set(0.18, 0.45, 0);
+  group.add(leg2);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "rgba(0,0,0,0.65)";
+  ctx.fillRect(0, 0, 512, 128);
+  ctx.fillStyle = "white";
+  ctx.font = "bold 52px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText(name, 256, 82);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map:texture, transparent:true }));
+  tag.position.y = 3.25;
+  tag.scale.set(4, 1, 1);
+  group.add(tag);
 
   return group;
 }
@@ -297,11 +430,7 @@ function makeBaseballField() {
   mound.position.set(0, 0.03, -10);
   scene.add(mound);
 
-  const bases = [
-    [0, 0], [18, -18], [0, -36], [-18, -18]
-  ];
-
-  bases.forEach(([x,z]) => {
+  [[0,0],[18,-18],[0,-36],[-18,-18]].forEach(([x,z]) => {
     const base = new THREE.Mesh(
       new THREE.BoxGeometry(3, 0.18, 3),
       new THREE.MeshStandardMaterial({ color:0xffffff })
@@ -317,17 +446,6 @@ function makeBaseballField() {
   makeLine(0, -36, -18, -18, lineMat);
   makeLine(-18, -18, 0, 0, lineMat);
   makeLine(0, 0, 18, -18, lineMat);
-
-  const fenceMat = new THREE.MeshStandardMaterial({ color:0x0b2c0b });
-  for (let i = 0; i < 40; i++) {
-    const angle = Math.PI + i * Math.PI / 39;
-    const x = Math.cos(angle) * 95;
-    const z = Math.sin(angle) * 95 - 10;
-
-    const post = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 2), fenceMat);
-    post.position.set(x, 3.5, z);
-    scene.add(post);
-  }
 
   const wall = new THREE.Mesh(
     new THREE.BoxGeometry(190, 8, 2),
