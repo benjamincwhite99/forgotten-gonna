@@ -32,10 +32,8 @@ io.on("connection", socket => {
     rooms[roomCode].players[socket.id] = {
       id: socket.id,
       name: name || "Player",
-      x: 0,
-      y: 0,
-      z: 0,
-      yaw: 0
+      ready: false,
+      x:0, y:0, z:0, yaw:0
     };
 
     socket.join(roomCode);
@@ -59,10 +57,8 @@ io.on("connection", socket => {
     rooms[roomCode].players[socket.id] = {
       id: socket.id,
       name: name || "Player",
-      x: 0,
-      y: 0,
-      z: 0,
-      yaw: 0
+      ready: false,
+      x:0, y:0, z:0, yaw:0
     };
 
     socket.join(roomCode);
@@ -72,8 +68,7 @@ io.on("connection", socket => {
 
   socket.on("startGame", roomCode => {
     const room = rooms[roomCode];
-    if (!room) return;
-    if (room.hostId !== socket.id) return;
+    if (!room || room.hostId !== socket.id) return;
 
     room.started = true;
     io.to(roomCode).emit("gameStarted");
@@ -83,10 +78,7 @@ io.on("connection", socket => {
     const room = rooms[roomCode];
     if (!room || !room.players[socket.id]) return;
 
-    room.players[socket.id].x = x;
-    room.players[socket.id].y = y;
-    room.players[socket.id].z = z;
-    room.players[socket.id].yaw = yaw;
+    Object.assign(room.players[socket.id], { x, y, z, yaw });
 
     io.to(roomCode).emit("playersUpdate", room.players);
   });
@@ -99,8 +91,7 @@ io.on("connection", socket => {
         delete room.players[socket.id];
 
         if (socket.id === room.hostId) {
-          const ids = Object.keys(room.players);
-          room.hostId = ids[0] || null;
+          room.hostId = Object.keys(room.players)[0] || null;
         }
 
         if (Object.keys(room.players).length === 0) {
@@ -115,5 +106,5 @@ io.on("connection", socket => {
 });
 
 server.listen(process.env.PORT || 3000, () => {
-  console.log("Server running");
+  console.log("Forgotten Gonza server running");
 });
