@@ -569,12 +569,57 @@ function makeSigils() {
 }
 
 function makeWarden() {
-  const texture = new THREE.TextureLoader().load("assets/warden2.png");
-  const mat = new THREE.SpriteMaterial({ map:texture, transparent:true });
+  warden = new THREE.Group();
 
-  warden = new THREE.Sprite(mat);
-  warden.position.set(45, 3, 45);
-  warden.scale.set(7, 9, 1);
+  const bodyMat = new THREE.MeshStandardMaterial({ color:0x111111 });
+  const limbMat = new THREE.MeshStandardMaterial({ color:0x050505 });
+
+  const body = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.75, 2.2, 8, 16),
+    bodyMat
+  );
+  body.position.y = 2.2;
+  warden.add(body);
+
+  const texture = new THREE.TextureLoader().load("assets/warden2.png");
+  const head = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map:texture, transparent:true })
+  );
+  head.position.y = 3.9;
+  head.scale.set(2.2, 2.2, 1);
+  warden.add(head);
+
+  const leftArm = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.18, 1.7, 6, 10),
+    limbMat
+  );
+  leftArm.position.set(-0.9, 2.25, 0);
+  warden.add(leftArm);
+
+  const rightArm = leftArm.clone();
+  rightArm.position.x = 0.9;
+  warden.add(rightArm);
+
+  const leftLeg = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.22, 1.8, 6, 10),
+    limbMat
+  );
+  leftLeg.position.set(-0.35, 0.8, 0);
+  warden.add(leftLeg);
+
+  const rightLeg = leftLeg.clone();
+  rightLeg.position.x = 0.35;
+  warden.add(rightLeg);
+
+  warden.userData = {
+    leftArm,
+    rightArm,
+    leftLeg,
+    rightLeg,
+    walkTime: 0
+  };
+
+  warden.position.set(45, 0, 45);
   scene.add(warden);
 }
 
@@ -722,18 +767,39 @@ function updatePlayer() {
 
 function updateWarden() {
   const playerPos = camera.position.clone();
-  const distance = playerPos.distanceTo(warden.position);
-  const dir = playerPos.sub(warden.position).normalize();
+  const wardenPos = warden.position.clone();
+
+  const flatPlayer = new THREE.Vector3(playerPos.x, 0, playerPos.z);
+  const flatWarden = new THREE.Vector3(wardenPos.x, 0, wardenPos.z);
+
+  const distance = flatPlayer.distanceTo(flatWarden);
+  const dir = flatPlayer.sub(flatWarden).normalize();
 
   const speed = 0.12 + collected * 0.03;
-  warden.position.addScaledVector(dir, speed);
-  warden.position.y = 3;
+
+  warden.position.x += dir.x * speed;
+  warden.position.z += dir.z * speed;
+  warden.position.y = 0;
+
+  warden.rotation.y = Math.atan2(dir.x, dir.z);
+
+  warden.userData.walkTime += speed * 18;
+
+  const swing = Math.sin(warden.userData.walkTime) * 0.75;
+  const oppositeSwing = Math.sin(warden.userData.walkTime + Math.PI) * 0.75;
+
+  warden.userData.leftArm.rotation.x = swing;
+  warden.userData.rightArm.rotation.x = oppositeSwing;
+  warden.userData.leftLeg.rotation.x = oppositeSwing;
+  warden.userData.rightLeg.rotation.x = swing;
 
   const staticAmount = Math.max(0, Math.min(0.95, 1 - distance / 50));
   staticOverlay.style.opacity = staticAmount;
   staticSound.volume = staticAmount;
 
-  if (distance < 3.2) loseGame();
+  if (distance < 3.2) {
+    loseGame();
+  }
 }
 
 function updateSigils() {
@@ -812,7 +878,7 @@ function resetGame() {
   camera.rotation.y = 0;
   camera.rotation.x = 0;
 
-  warden.position.set(45, 3, 45);
+  warden.position.set(45, 0, 45);
 
   sigils.forEach(ball => {
     ball.userData.taken = false;
