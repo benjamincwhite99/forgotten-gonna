@@ -255,7 +255,7 @@ function beginGame() {
   if (!isMobile()) document.body.requestPointerLock();
 
   ambient.volume = 0.45;
-  staticSound.volume = 0.01;
+  staticSound.volume = 0.00;
 
   ambient.play().catch(() => {});
   staticSound.play().catch(() => {});
@@ -571,61 +571,125 @@ function makeSigils() {
 function makeWarden() {
   warden = new THREE.Group();
 
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x181818 });
-  const limbMat = new THREE.MeshStandardMaterial({ color: 0x080808 });
+  const blackMat = new THREE.MeshStandardMaterial({ color:0x080808 });
+  const darkMat = new THREE.MeshStandardMaterial({ color:0x141414 });
+  const jointMat = new THREE.MeshStandardMaterial({ color:0x050505 });
 
-  // Tall thin torso
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.65, 4.0, 8, 16),
-    bodyMat
+  // Main eerie tall torso
+  const torso = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.5, 4.6, 10, 18),
+    darkMat
   );
-  body.position.y = 3.4;
-  warden.add(body);
+  torso.position.y = 4.0;
+  warden.add(torso);
 
-  // PNG head/face
+  // Thin neck so PNG head isn't buried
+  const neck = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.18, 0.24, 0.9, 12),
+    blackMat
+  );
+  neck.position.y = 6.75;
+  warden.add(neck);
+
+  // PNG head, lifted forward and above body
   const texture = new THREE.TextureLoader().load("assets/warden2.png");
   const head = new THREE.Sprite(
     new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      depthWrite: false
+      map:texture,
+      transparent:true,
+      depthWrite:false,
+      depthTest:false
     })
   );
-  head.position.y = 6.35;
-  head.position.z = -0.25;
-  head.scale.set(3.2, 3.2, 1);
+  head.position.set(0, 7.45, -0.72);
+  head.scale.set(2.8, 2.8, 1);
   warden.add(head);
 
-  // Long creepy arms
-  const leftArm = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.16, 3.4, 6, 10),
-    limbMat
+  // Shoulders
+  const shoulders = new THREE.Mesh(
+    new THREE.BoxGeometry(1.75, 0.32, 0.42),
+    blackMat
   );
-  leftArm.position.set(-0.95, 3.3, 0);
-  warden.add(leftArm);
+  shoulders.position.y = 5.95;
+  warden.add(shoulders);
 
-  const rightArm = leftArm.clone();
-  rightArm.position.x = 0.95;
-  warden.add(rightArm);
+  // Arms with upper/lower sections
+  function makeArm(side) {
+    const arm = new THREE.Group();
 
-  // Long legs
-  const leftLeg = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.18, 3.1, 6, 10),
-    limbMat
-  );
-  leftLeg.position.set(-0.32, 1.35, 0);
-  warden.add(leftLeg);
+    const upper = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.13, 1.9, 6, 10),
+      blackMat
+    );
+    upper.position.y = -0.9;
+    arm.add(upper);
 
-  const rightLeg = leftLeg.clone();
-  rightLeg.position.x = 0.32;
-  warden.add(rightLeg);
+    const lower = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.12, 1.8, 6, 10),
+      jointMat
+    );
+    lower.position.y = -2.35;
+    lower.rotation.x = -0.25;
+    arm.add(lower);
+
+    arm.position.set(side * 1.05, 5.65, 0);
+    arm.rotation.z = side * 0.14;
+
+    return { group:arm, upper, lower };
+  }
+
+  const leftArm = makeArm(-1);
+  const rightArm = makeArm(1);
+
+  warden.add(leftArm.group);
+  warden.add(rightArm.group);
+
+  // Legs with upper/lower sections
+  function makeLeg(side) {
+    const leg = new THREE.Group();
+
+    const upper = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.16, 2.0, 6, 10),
+      blackMat
+    );
+    upper.position.y = -0.9;
+    leg.add(upper);
+
+    const lower = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.14, 2.0, 6, 10),
+      jointMat
+    );
+    lower.position.y = -2.35;
+    leg.add(lower);
+
+    const foot = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.18, 0.75),
+      blackMat
+    );
+    foot.position.set(0, -3.45, -0.18);
+    leg.add(foot);
+
+    leg.position.set(side * 0.32, 3.0, 0);
+
+    return { group:leg, upper, lower, foot };
+  }
+
+  const leftLeg = makeLeg(-1);
+  const rightLeg = makeLeg(1);
+
+  warden.add(leftLeg.group);
+  warden.add(rightLeg.group);
 
   warden.userData = {
+    head,
+    torso,
     leftArm,
     rightArm,
     leftLeg,
     rightLeg,
-    walkTime: 0
+    walkTime:0,
+    lastX:45,
+    lastZ:45
   };
 
   warden.position.set(45, 0, 45);
@@ -790,21 +854,54 @@ function updateWarden() {
   warden.position.z += dir.z * speed;
   warden.position.y = 0;
 
+  // Face the player
   warden.rotation.y = Math.atan2(dir.x, dir.z);
 
-  warden.userData.walkTime += speed * 18;
+  // Movement amount for animation
+  const moved = Math.hypot(
+    warden.position.x - warden.userData.lastX,
+    warden.position.z - warden.userData.lastZ
+  );
 
-  const swing = Math.sin(warden.userData.walkTime) * 0.75;
-  const oppositeSwing = Math.sin(warden.userData.walkTime + Math.PI) * 0.75;
+  warden.userData.lastX = warden.position.x;
+  warden.userData.lastZ = warden.position.z;
 
-  warden.userData.leftArm.rotation.x = swing;
-  warden.userData.rightArm.rotation.x = oppositeSwing;
-  warden.userData.leftLeg.rotation.x = oppositeSwing;
-  warden.userData.rightLeg.rotation.x = swing;
+  warden.userData.walkTime += moved * 7.5;
 
-  const staticAmount = Math.max(0, Math.min(0.95, 1 - distance / 50));
+  const t = warden.userData.walkTime;
+
+  const armSwing = Math.sin(t) * 0.7;
+  const legSwing = Math.sin(t) * 0.55;
+  const bodySway = Math.sin(t * 0.5) * 0.04;
+  const headBob = Math.sin(t * 2) * 0.08;
+
+  // Creepy humanlike gait
+  warden.userData.leftArm.group.rotation.x = armSwing;
+  warden.userData.rightArm.group.rotation.x = -armSwing;
+
+  warden.userData.leftArm.lower.rotation.x = -0.35 + Math.max(0, -armSwing) * 0.5;
+  warden.userData.rightArm.lower.rotation.x = -0.35 + Math.max(0, armSwing) * 0.5;
+
+  warden.userData.leftLeg.group.rotation.x = -legSwing;
+  warden.userData.rightLeg.group.rotation.x = legSwing;
+
+  warden.userData.leftLeg.lower.rotation.x = Math.max(0, legSwing) * 0.45;
+  warden.userData.rightLeg.lower.rotation.x = Math.max(0, -legSwing) * 0.45;
+
+  warden.userData.torso.rotation.z = bodySway;
+  warden.userData.head.position.y = 7.45 + headBob;
+
+  // Static audio ramps by distance
+  const closeStart = 65;
+  const staticAmount = THREE.MathUtils.clamp(1 - distance / closeStart, 0, 0.95);
+
   staticOverlay.style.opacity = staticAmount;
-  staticSound.volume = staticAmount;
+
+  if (!gameOver && started) {
+    staticSound.volume = staticAmount;
+  } else {
+    staticSound.volume = 0;
+  }
 
   if (distance < 3.2) {
     loseGame();
@@ -832,18 +929,25 @@ function updateSigils() {
 }
 
 function loseGame() {
+  if (gameOver) return;
+
   gameOver = true;
 
   ambient.pause();
   staticSound.pause();
+  staticSound.volume = 0;
   staticOverlay.style.opacity = 0;
-
-  jumpscareScreen.style.display = "block";
 
   jumpAudio.pause();
   jumpAudio.currentTime = 0;
   jumpAudio.volume = 1;
-  jumpAudio.play().catch(() => {});
+  jumpAudio.muted = false;
+
+  jumpAudio.play().catch(err => {
+    console.log("Jumpscare audio failed:", err);
+  });
+
+  jumpscareScreen.style.display = "block";
 
   setTimeout(() => {
     jumpscareScreen.style.display = "none";
@@ -851,7 +955,9 @@ function loseGame() {
     deathScreen.classList.remove("hidden");
   }, 1200);
 
-  if (document.pointerLockElement) document.exitPointerLock();
+  if (document.pointerLockElement) {
+    document.exitPointerLock();
+  }
 }
 
 function winGame() {
