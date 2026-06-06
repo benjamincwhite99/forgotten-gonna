@@ -571,44 +571,53 @@ function makeSigils() {
 function makeWarden() {
   warden = new THREE.Group();
 
-  const bodyMat = new THREE.MeshStandardMaterial({ color:0x111111 });
-  const limbMat = new THREE.MeshStandardMaterial({ color:0x050505 });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x181818 });
+  const limbMat = new THREE.MeshStandardMaterial({ color: 0x080808 });
 
+  // Tall thin torso
   const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.75, 2.2, 8, 16),
+    new THREE.CapsuleGeometry(0.65, 4.0, 8, 16),
     bodyMat
   );
-  body.position.y = 2.2;
+  body.position.y = 3.4;
   warden.add(body);
 
+  // PNG head/face
   const texture = new THREE.TextureLoader().load("assets/warden2.png");
   const head = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map:texture, transparent:true })
+    new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false
+    })
   );
-  head.position.y = 3.9;
-  head.scale.set(2.2, 2.2, 1);
+  head.position.y = 6.35;
+  head.position.z = -0.25;
+  head.scale.set(3.2, 3.2, 1);
   warden.add(head);
 
+  // Long creepy arms
   const leftArm = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.18, 1.7, 6, 10),
+    new THREE.CapsuleGeometry(0.16, 3.4, 6, 10),
     limbMat
   );
-  leftArm.position.set(-0.9, 2.25, 0);
+  leftArm.position.set(-0.95, 3.3, 0);
   warden.add(leftArm);
 
   const rightArm = leftArm.clone();
-  rightArm.position.x = 0.9;
+  rightArm.position.x = 0.95;
   warden.add(rightArm);
 
+  // Long legs
   const leftLeg = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.22, 1.8, 6, 10),
+    new THREE.CapsuleGeometry(0.18, 3.1, 6, 10),
     limbMat
   );
-  leftLeg.position.set(-0.35, 0.8, 0);
+  leftLeg.position.set(-0.32, 1.35, 0);
   warden.add(leftLeg);
 
   const rightLeg = leftLeg.clone();
-  rightLeg.position.x = 0.35;
+  rightLeg.position.x = 0.32;
   warden.add(rightLeg);
 
   warden.userData = {
