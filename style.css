@@ -1,0 +1,150 @@
+body {
+  margin:0;
+  overflow:hidden;
+  background:black;
+  color:white;
+  font-family:Arial, sans-serif;
+  touch-action:none;
+}
+
+canvas { display:block; }
+
+.hidden { display:none !important; }
+
+.screen {
+  position:fixed;
+  inset:0;
+  z-index:50;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  text-align:center;
+  padding:25px;
+  background:radial-gradient(circle, rgba(40,40,40,.45), rgba(0,0,0,.96));
+}
+
+h1 {
+  font-size:54px;
+  margin:0;
+  letter-spacing:2px;
+}
+
+p { color:#ddd; margin:3px; }
+
+input, button {
+  font-size:20px;
+  padding:12px 16px;
+  border-radius:10px;
+  border:none;
+  width:min(330px,85vw);
+}
+
+button {
+  cursor:pointer;
+  font-weight:bold;
+}
+
+#hud {
+  position:fixed;
+  top:15px;
+  left:15px;
+  z-index:10;
+  font-size:22px;
+  text-shadow:2px 2px 6px black;
+}
+
+.bar {
+  width:180px;
+  height:12px;
+  background:rgba(255,255,255,.25);
+  margin-top:8px;
+  border-radius:8px;
+  overflow:hidden;
+}
+
+#staminaBar {
+  height:100%;
+  width:100%;
+  background:white;
+}
+
+#batteryBar {
+  height:100%;
+  width:100%;
+  background:#ffe066;
+}
+
+#roomDisplay, #playerList, #menuStatus {
+  font-size:17px;
+  color:#ddd;
+  max-width:460px;
+  line-height:1.4;
+}
+
+#staticOverlay {
+  position:fixed;
+  inset:0;
+  z-index:20;
+  pointer-events:none;
+  background:url("https://media.giphy.com/media/oEI9uBYSzLpBK/giphy.gif");
+  opacity:0;
+  mix-blend-mode:screen;
+}
+
+#jumpscareScreen {
+  position:fixed;
+  inset:0;
+  z-index:999;
+  display:none;
+  background-image:url("assets/warden2.png");
+  background-size:cover;
+  background-position:center;
+}
+
+#mobileControls {
+  position:fixed;
+  inset:0;
+  z-index:30;
+  pointer-events:none;
+}
+
+#joystick {
+  position:fixed;
+  left:25px;
+  bottom:25px;
+  width:120px;
+  height:120px;
+  border:3px solid rgba(255,255,255,.45);
+  border-radius:50%;
+  display:none;
+  pointer-events:auto;
+}
+
+#stick {
+  position:absolute;
+  left:35px;
+  top:35px;
+  width:50px;
+  height:50px;
+  background:rgba(255,255,255,.55);
+  border-radius:50%;
+}
+
+#jumpBtn {
+  position:fixed;
+  right:30px;
+  bottom:35px;
+  width:90px;
+  height:90px;
+  border-radius:50%;
+  display:none;
+  pointer-events:auto;
+}
+
+@media (max-width:900px) {
+  h1 { font-size:38px; }
+  input, button { font-size:17px; }
+  #joystick, #jumpBtn { display:block; }
+}
